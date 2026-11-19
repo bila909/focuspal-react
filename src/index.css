@@ -1,0 +1,141 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #ece6f7;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #3b2f5c;
+  display: flex;
+  justify-content: center;
+}
+
+.phone {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh;
+  background: #faf7ff;
+  box-shadow: 0 0 30px rgba(120, 90, 190, 0.15);
+}
+
+.screen {
+  min-height: 100vh;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+.screen.top { justify-content: flex-start; }
+
+h1, h2, h3 { margin: 0; }
+.logo { font-size: 28px; color: #7c5cc4; }
+.mochi { height: auto; }
+.greeting, .caption { margin: 0; color: #6b5d8f; }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.chip {
+  border: 2px solid #c9b8ee;
+  background: #fff;
+  color: #5b45a0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.chip.active { background: #8d6fd6; border-color: #8d6fd6; color: #fff; }
+
+.btn {
+  border: none;
+  padding: 12px 26px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn.primary { background: #8d6fd6; color: #fff; }
+.btn.primary:hover { background: #7a5bc2; }
+.btn.ghost { background: #ece6f7; color: #5b45a0; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+.summary { font-size: 14px; color: #6b5d8f; }
+.time { font-size: 64px; font-weight: 800; letter-spacing: 2px; color: #5b45a0; }
+.reward {
+  font-size: 28px; font-weight: 800; color: #c28a00;
+  background: #fff4cf; padding: 8px 20px; border-radius: 14px;
+}
+
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.stat {
+  background: #fff; border-radius: 14px; padding: 12px;
+  display: flex; flex-direction: column; box-shadow: 0 2px 8px rgba(120, 90, 190, 0.1);
+}
+.stat b { font-size: 24px; color: #7c5cc4; }
+.stat span { font-size: 13px; color: #6b5d8f; }
+
+.history { width: 100%; max-height: 220px; overflow-y: auto; }
+.hrow {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fff; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 14px;
+}
+.hrow small { color: #8a7caf; }
+
+/* ===== ANIMASI MOCHI ===== */
+.mochi { filter: drop-shadow(0 8px 10px rgba(124, 92, 196, 0.25)); }
+
+@keyframes float   { 0%, 100% { transform: translateY(0); }   50% { transform: translateY(-8px); } }
+@keyframes breathe { 0%, 100% { transform: scale(1); }        50% { transform: scale(1.04); } }
+@keyframes shake   { 0%, 100% { transform: rotate(0); }       25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+@keyframes jump    { 0%, 100% { transform: translateY(0) scale(1); }
+                     40% { transform: translateY(-22px) scale(1.05); }
+                     60% { transform: translateY(0) scale(0.97, 1.03); } }
+
+.mochi.idle      { animation: float 3s ease-in-out infinite; }
+.mochi.focus     { animation: breathe 4s ease-in-out infinite; }
+.mochi.disturbed { animation: shake 0.6s ease-in-out infinite; }
+.mochi.rest      { animation: float 5s ease-in-out infinite; }
+.mochi.happy,
+.mochi.reward    { animation: jump 1s ease-in-out infinite; }
+
+/* ===== BALON CHAT MOCHI ===== */
+.mochi-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 250px;
+  justify-content: flex-end;
+}
+
+.bubble {
+  position: relative;
+  background: #fff;
+  border: 2px solid #c9b8ee;
+  color: #5b45a0;
+  padding: 8px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  max-width: 260px;
+  animation: pop 0.35s ease-out;
+}
+.bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  margin-left: -8px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-right: 2px solid #c9b8ee;
+  border-bottom: 2px solid #c9b8ee;
+  transform: rotate(45deg);
+}
+
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
