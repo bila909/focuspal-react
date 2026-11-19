@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 // Ubah ke 1 untuk tes cepat (25 "menit" jadi 25 detik). Kembalikan ke 60 setelah tes.
 const SECONDS_PER_MINUTE = 60
 const BREAK_MINUTES = 5
+const AWAY_LIMIT_SECONDS = 10 // pergi dari tab lebih dari ini = sesi gagal
 const OPTIONS = [15, 25, 45]
-const STORAGE_KEY = 'focuspal_sessions'
+const SESSIONS_KEY = 'focuspal_sessions'
+const ITEMS_KEY = 'focuspal_items'
 
 const MOCHI = {
   idle: '/mochi/mochi_idle.png',
@@ -15,6 +17,18 @@ const MOCHI = {
   rest: '/mochi/mochi_rest.png',
   reward: '/mochi/mochi_reward.png',
 }
+
+// Dekorasi yang bisa dibeli di toko
+const ITEMS = [
+  { id: 'lamp', name: 'Lampu belajar', emoji: '💡', price: 20 },
+  { id: 'plant', name: 'Tanaman', emoji: '🪴', price: 30 },
+  { id: 'books', name: 'Tumpukan buku', emoji: '📚', price: 40 },
+  { id: 'clock', name: 'Jam meja', emoji: '⏰', price: 50 },
+  { id: 'frame', name: 'Bingkai foto', emoji: '🖼️', price: 60 },
+  { id: 'yarn', name: 'Gulungan benang', emoji: '🧶', price: 80 },
+  { id: 'cake', name: 'Kue stroberi', emoji: '🍰', price: 100 },
+  { id: 'trophy', name: 'Piala fokus', emoji: '🏆', price: 150 },
+]
 
 // Kalimat-kalimat Mochi
 const SAYS = {
@@ -33,12 +47,18 @@ const SAYS = {
   ],
   rest: ['Zzz... istirahat yang cukup ya', 'Regangin badan dulu 🙆', 'Minum air dulu gih 💧'],
   done: ['Yeay! Kamu hebat! 🎉', 'Aku bangga sama kamu!', 'Nih bintang buat kamu ⭐'],
+  failed: [
+    'Kamu pergi ninggalin aku... 😢',
+    'Aku sedih, jarum rajutku jatuh...',
+    'Gapapa, coba lagi ya. Aku tunggu.',
+  ],
+  room: ['Ini kamarku! Bagus kan? 🏠', 'Beli dekorasi biar kamarku makin lucu~'],
 }
 
-// ===== PENYIMPANAN (riwayat sesi) =====
+// ===== PENYIMPANAN =====
 function loadSessions() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []
+    return JSON.parse(localStorage.getItem(SESSIONS_KEY)) || []
   } catch {
     return []
   }
@@ -47,9 +67,22 @@ function loadSessions() {
 function saveSession(session) {
   const list = loadSessions()
   list.push(session)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(list))
 }
 
+function loadItems() {
+  try {
+    return JSON.parse(localStorage.getItem(ITEMS_KEY)) || []
+  } catch {
+    return []
+  }
+}
+
+function saveItems(ids) {
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(ids))
+}
+
+// ===== HITUNGAN =====
 function isToday(iso) {
   const d = new Date(iso)
   const n = new Date()
@@ -60,6 +93,26 @@ function isToday(iso) {
   )
 }
 
+// Koin sisa = semua poin yang didapat - harga barang yang sudah dibeli
+function getCoins(owned) {
+  const earned = loadSessions().reduce((a, s) => a + s.points, 0)
+  const spent = owned.reduce((a, id) => a + (ITEMS.find((i) => i.id === id)?.price || 0), 0)
+  return earned - spent
+}
+
+// Streak = berapa hari berturut-turut ada sesi
+function calcStreak(list) {
+  const days = new Set(list.map((s) => new Date(s.date).toDateString()))
+  let streak = 0
+  const d = new Date()
+  if (!days.has(d.toDateString())) d.setDate(d.getDate() - 1)
+  while (days.has(d.toDateString())) {
+    streak++
+    d.setDate(d.getDate() - 1)
+  }
+  return streak
+}
+
 // ===== KARAKTER =====
 // mood     : pose utama
 // altMood  : pose selingan (muncul sebentar tiap 5 detik, misal angkat tangan)
@@ -68,7 +121,6 @@ function Mochi({ mood, size = 190, messages = [], altMood = null }) {
   const [msgIndex, setMsgIndex] = useState(0)
   const [showAlt, setShowAlt] = useState(false)
 
-  // Ganti kalimat
   useEffect(() => {
     setMsgIndex(0)
     if (messages.length < 2) return
@@ -77,7 +129,6 @@ function Mochi({ mood, size = 190, messages = [], altMood = null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mood])
 
-  // Ganti pose sebentar
   useEffect(() => {
     setShowAlt(false)
     if (!altMood) return
@@ -108,9 +159,11 @@ function Mochi({ mood, size = 190, messages = [], altMood = null }) {
 
 // ===== APLIKASI UTAMA =====
 export default function App() {
-  const [screen, setScreen] = useState('home') // home | focus | done | break | progress
+  // home | focus | done | failed | break | progress | room
+  const [screen, setScreen] = useState('home')
   const [minutes, setMinutes] = useState(25)
   const [lastSession, setLastSession] = useState(null)
+  const [owned, setOwned] = useState(loadItems)
 
   function handleFocusFinish() {
     const session = {
@@ -123,14 +176,23 @@ export default function App() {
     setScreen('done')
   }
 
+  function handleBuy(item) {
+    if (owned.includes(item.id) || getCoins(owned) < item.price) return
+    const next = [...owned, item.id]
+    saveItems(next)
+    setOwned(next)
+  }
+
   return (
     <div className="phone">
       {screen === 'home' && (
         <Home
           minutes={minutes}
           setMinutes={setMinutes}
+          owned={owned}
           onStart={() => setScreen('focus')}
           onProgress={() => setScreen('progress')}
+          onRoom={() => setScreen('room')}
         />
       )}
 
@@ -141,6 +203,7 @@ export default function App() {
           totalSeconds={minutes * SECONDS_PER_MINUTE}
           onFinish={handleFocusFinish}
           onCancel={() => setScreen('home')}
+          onInterrupt={() => setScreen('failed')}
         />
       )}
 
@@ -150,6 +213,10 @@ export default function App() {
           onHome={() => setScreen('home')}
           onBreak={() => setScreen('break')}
         />
+      )}
+
+      {screen === 'failed' && (
+        <Failed onRetry={() => setScreen('focus')} onHome={() => setScreen('home')} />
       )}
 
       {screen === 'break' && (
@@ -162,20 +229,29 @@ export default function App() {
         />
       )}
 
-      {screen === 'progress' && <Progress onBack={() => setScreen('home')} />}
+      {screen === 'progress' && <Progress owned={owned} onBack={() => setScreen('home')} />}
+
+      {screen === 'room' && (
+        <Room owned={owned} onBuy={handleBuy} onBack={() => setScreen('home')} />
+      )}
     </div>
   )
 }
 
 // ===== HALAMAN 1: HOME =====
-function Home({ minutes, setMinutes, onStart, onProgress }) {
+function Home({ minutes, setMinutes, owned, onStart, onProgress, onRoom }) {
   const sessions = loadSessions()
   const todayCount = sessions.filter((s) => isToday(s.date)).length
   const totalMinutes = sessions.reduce((a, s) => a + s.minutes, 0)
+  const streak = calcStreak(sessions)
+  const coins = getCoins(owned)
 
   return (
     <div className="screen">
       <h1 className="logo">FocusPal 🌱</h1>
+      <div className="coins">
+        🔥 {streak} hari &nbsp;·&nbsp; ⭐ {coins} koin
+      </div>
       <Mochi mood="idle" altMood="happy" messages={SAYS.home} />
 
       <div className="chips">
@@ -198,24 +274,32 @@ function Home({ minutes, setMinutes, onStart, onProgress }) {
         Hari ini: <b>{todayCount}</b> sesi · Total: <b>{totalMinutes}</b> menit
       </div>
 
-      <button className="btn ghost" onClick={onProgress}>
-        Lihat Progress
-      </button>
+      <div className="row">
+        <button className="btn ghost" onClick={onRoom}>
+          Ruang Mochi 🏠
+        </button>
+        <button className="btn ghost" onClick={onProgress}>
+          Progress
+        </button>
+      </div>
     </div>
   )
 }
 
 // ===== HALAMAN 2: FOCUS SESSION (dan juga istirahat) =====
-function Timer({ mode, totalSeconds, onFinish, onCancel }) {
+function Timer({ mode, totalSeconds, onFinish, onCancel, onInterrupt }) {
   const [ms, setMs] = useState(totalSeconds * 1000)
   const [paused, setPaused] = useState(false)
   const msRef = useRef(ms) // sisa waktu terakhir (dipakai saat resume)
+  const endRef = useRef(null) // waktu selesai
 
+  // Countdown
   useEffect(() => {
     if (paused) return
     // Simpan waktu SELESAI, bukan kurangi detik satu-satu -> tetap akurat
     // walau tab di-background atau layar dikunci.
     const endTime = Date.now() + msRef.current
+    endRef.current = endTime
     const id = setInterval(() => {
       const left = endTime - Date.now()
       if (left <= 0) {
@@ -231,6 +315,29 @@ function Timer({ mode, totalSeconds, onFinish, onCancel }) {
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused])
+
+  // Deteksi pergi dari tab/aplikasi saat fokus (versi web dari Deep Focus)
+  useEffect(() => {
+    if (mode !== 'focus' || paused) return
+    let hiddenAt = null
+
+    function onVisibility() {
+      if (document.hidden) {
+        hiddenAt = Date.now()
+        return
+      }
+      if (hiddenAt === null) return
+      const away = (Date.now() - hiddenAt) / 1000
+      hiddenAt = null
+      const timeIsUp = endRef.current !== null && Date.now() >= endRef.current
+      // Kalau waktu sudah habis selama pergi, biarkan countdown menyelesaikan sesi
+      if (!timeIsUp && away > AWAY_LIMIT_SECONDS) onInterrupt()
+    }
+
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, paused])
 
   const secs = Math.ceil(ms / 1000)
   const mm = String(Math.floor(secs / 60)).padStart(2, '0')
@@ -282,12 +389,87 @@ function Done({ session, onHome, onBreak }) {
   )
 }
 
+// ===== HALAMAN: SESI GAGAL (kabur dari aplikasi) =====
+function Failed({ onRetry, onHome }) {
+  return (
+    <div className="screen">
+      <h2>Sesi terhenti 😢</h2>
+      <Mochi mood="disturbed" messages={SAYS.failed} />
+      <p className="caption">
+        Kamu meninggalkan aplikasi lebih dari {AWAY_LIMIT_SECONDS} detik, jadi sesi ini nggak dapat poin.
+      </p>
+      <div className="row">
+        <button className="btn primary" onClick={onRetry}>
+          Coba lagi
+        </button>
+        <button className="btn ghost" onClick={onHome}>
+          Kembali
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ===== HALAMAN: RUANG MOCHI + TOKO =====
+function Room({ owned, onBuy, onBack }) {
+  const coins = getCoins(owned)
+
+  return (
+    <div className="screen top">
+      <h2>Ruang Mochi 🏠</h2>
+      <div className="coins">⭐ {coins} koin</div>
+
+      <div className="room">
+        <div className="shelf">
+          {owned.length === 0 && <span className="empty">Kamar masih kosong...</span>}
+          {owned.map((id) => (
+            <span key={id} className="deco">
+              {ITEMS.find((i) => i.id === id)?.emoji}
+            </span>
+          ))}
+        </div>
+        <Mochi mood="idle" altMood="happy" size={120} messages={SAYS.room} />
+      </div>
+
+      <h3>Toko</h3>
+      <div className="shop">
+        {ITEMS.map((item) => {
+          const has = owned.includes(item.id)
+          const canBuy = coins >= item.price
+          return (
+            <div className="item" key={item.id}>
+              <span className="emoji">{item.emoji}</span>
+              <div className="info">
+                <b>{item.name}</b>
+                <small>⭐ {item.price}</small>
+              </div>
+              <button
+                className="btn small primary"
+                disabled={has || !canBuy}
+                onClick={() => onBuy(item)}
+              >
+                {has ? 'Dimiliki' : canBuy ? 'Beli' : 'Kurang'}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      <button className="btn ghost" onClick={onBack}>
+        Kembali
+      </button>
+    </div>
+  )
+}
+
 // ===== HALAMAN 4: PROGRESS =====
-function Progress({ onBack }) {
+function Progress({ owned, onBack }) {
   const list = loadSessions().reverse()
   const totalMinutes = list.reduce((a, s) => a + s.minutes, 0)
   const totalPoints = list.reduce((a, s) => a + s.points, 0)
   const todayCount = list.filter((s) => isToday(s.date)).length
+  const streak = calcStreak(list)
+  const coins = getCoins(owned)
 
   return (
     <div className="screen top">
@@ -299,6 +481,8 @@ function Progress({ onBack }) {
         <div className="stat"><b>{totalMinutes}</b><span>Total menit</span></div>
         <div className="stat"><b>{totalPoints}</b><span>Total poin ⭐</span></div>
         <div className="stat"><b>{todayCount}</b><span>Sesi hari ini</span></div>
+        <div className="stat"><b>{streak} 🔥</b><span>Streak hari</span></div>
+        <div className="stat"><b>{coins}</b><span>Koin sisa</span></div>
       </div>
 
       <h3>Riwayat</h3>

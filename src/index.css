@@ -139,3 +139,55 @@ h1, h2, h3 { margin: 0; }
   0% { transform: scale(0.6); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* ===== KOIN, RUANGAN, TOKO ===== */
+.coins {
+  background: #fff4cf;
+  color: #8a6400;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.small { padding: 8px 14px; font-size: 14px; border-radius: 10px; }
+
+.room {
+  width: 100%;
+  background: linear-gradient(#efe7ff, #e1d4fa);
+  border: 2px solid #c9b8ee;
+  border-radius: 18px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.room .mochi-wrap { min-height: auto; }
+
+.shelf {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px;
+  border-bottom: 4px solid #b7a1e6;
+}
+.deco { font-size: 32px; animation: float 3s ease-in-out infinite; }
+.empty { color: #8a7caf; font-size: 13px; align-self: center; }
+
+.shop { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px rgba(120, 90, 190, 0.1);
+}
+.item .emoji { font-size: 28px; }
+.item .info { flex: 1; display: flex; flex-direction: column; text-align: left; }
+.item .info small { color: #8a6400; }
